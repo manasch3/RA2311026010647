@@ -4,9 +4,9 @@ A production-inspired distributed job scheduling platform capable of reliably ex
 
 ---
 
-## 📖 Quick Documentation Links
-- **[Full REST API Reference](./api_docs.md)** — Detailed endpoint specifications, curl examples, and auth parameters.
-- **[Architecture & Design Decisions](./design.md)** — Relational database normalization, performance indices, cascading delete strategy, and trade-offs.
+## 📖 Documentation Links
+- **[Full REST API Reference](api_docs.md)** — Detailed endpoint specifications, curl examples, and auth parameters.
+- **[Architecture & Design Decisions](design.md)** — Relational database normalization, performance indices, cascading delete strategy, and trade-offs.
 
 ---
 
@@ -39,13 +39,11 @@ A production-inspired distributed job scheduling platform capable of reliably ex
 
 ## 🏗️ System Architecture
 
-GitHub natively renders this diagram. If it does not display, ensure you are viewing it directly on GitHub.
-
 ```mermaid
 graph TD
     Client[Web Dashboard / REST Clients] -->|HTTP| API[Next.js API Routes]
     
-    sublayer API
+    subgraph API_Layer ["API Layer"]
         API -->|POST /jobs| DB[(SQLite Database)]
         API -->|GET /queues| DB
     end
@@ -112,7 +110,7 @@ erDiagram
 
 ## 📡 REST API Quick-Start
 
-For a full endpoint walkthrough, check out the **[REST API Reference](./api_docs.md)**.
+For a full endpoint walkthrough, check out the **[REST API Reference](api_docs.md)**.
 
 | Method | Endpoint | Description |
 |---|---|---|

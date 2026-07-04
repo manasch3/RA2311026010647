@@ -1,0 +1,16 @@
+```mermaid
+graph TD
+    Client[Web Dashboard / REST Clients] -->|HTTP| API[Next.js API Routes]
+    
+    subgraph API_Layer ["API Layer"]
+        API -->|POST /jobs| DB[(SQLite Database)]
+        API -->|GET /queues| DB
+    end
+
+    WorkerService[Worker Process / ts-node] -->|Polls| DB
+    WorkerService -->|Heartbeat| DB
+    WorkerService -->|Executes Job| JobExecution[Job Execution Logic]
+    JobExecution -->|Updates Status| DB
+    JobExecution -->|Retries on failure| DB
+    JobExecution -->|Sends to DLQ on max attempts| DB
+```
