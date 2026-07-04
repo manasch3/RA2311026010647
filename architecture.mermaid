@@ -1,4 +1,3 @@
-```mermaid
 graph TD
     Client[Web Dashboard / REST Clients] -->|HTTP| API[Next.js API Routes]
     
@@ -13,4 +12,3 @@ graph TD
     JobExecution -->|Updates Status| DB
     JobExecution -->|Retries on failure| DB
     JobExecution -->|Sends to DLQ on max attempts| DB
-```
