@@ -1,7 +1,7 @@
 graph TD
     Client[Web Dashboard / REST Clients] -->|HTTP| API[Next.js API Routes]
     
-    sublayer API
+    subgraph API
         API -->|POST /jobs| DB[(SQLite Database)]
         API -->|GET /queues| DB
     end
