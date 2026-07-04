@@ -4,12 +4,6 @@ A production-inspired distributed job scheduling platform capable of reliably ex
 
 ---
 
-## 📖 Documentation Links
-- **[Full REST API Reference](api_docs.md)** — Detailed endpoint specifications, curl examples, and auth parameters.
-- **[Architecture & Design Decisions](design.md)** — Relational database normalization, performance indices, cascading delete strategy, and trade-offs.
-
----
-
 ## ✨ Features
 
 ### Core Scheduling
@@ -37,80 +31,55 @@ A production-inspired distributed job scheduling platform capable of reliably ex
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ Architecture
 
-```mermaid
-graph TD
-    Client[Web Dashboard / REST Clients] -->|HTTP| API[Next.js API Routes]
-    
-    subgraph API_Layer ["API Layer"]
-        API -->|POST /jobs| DB[(SQLite Database)]
-        API -->|GET /queues| DB
-    end
-
-    WorkerService[Worker Process / ts-node] -->|Polls| DB
-    WorkerService -->|Heartbeat| DB
-    WorkerService -->|Executes Job| JobExecution[Job Execution Logic]
-    JobExecution -->|Updates Status| DB
-    JobExecution -->|Retries on failure| DB
-    JobExecution -->|Sends to DLQ on max attempts| DB
+```
+┌─────────────────────────────────────────────────────┐
+│              Web Dashboard (React)                   │
+│           http://localhost:3000                      │
+└──────────────────────┬──────────────────────────────┘
+                       │ HTTP (polling every 3s)
+┌──────────────────────▼──────────────────────────────┐
+│           Next.js REST API Routes                    │
+│  /api/queues  /api/jobs  /api/workers               │
+│  /api/jobs/cron          /api/jobs/retry            │
+└──────────────────────┬──────────────────────────────┘
+                       │ Prisma ORM
+┌──────────────────────▼──────────────────────────────┐
+│              SQLite Database                         │
+│  Organizations, Projects, Queues, Jobs, Workers,    │
+│  JobExecutions, JobLogs, ScheduledJobs, DLQ         │
+└──────────────────────┬──────────────────────────────┘
+                       │ Atomic polling
+┌──────────────────────▼──────────────────────────────┐
+│        Background Worker Process (ts-node)           │
+│  Polls → Claims atomically → Executes concurrently  │
+│  Heartbeat → Retries → DLQ on permanent failure     │
+└─────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🗄️ Database Design (ER Diagram)
+## 🗄️ Database Schema
 
-This schema uses a fully normalized relational schema (10 tables) for multitenancy and robust execution tracking.
+The system uses a fully normalized relational schema with 10 tables:
 
-```mermaid
-erDiagram
-    Organization ||--o{ User : contains
-    Organization ||--o{ Project : owns
-    Project ||--o{ Queue : manages
-    Queue ||--o{ Job : contains
-    Job ||--o{ JobExecution : runs
-    Job ||--o{ JobLog : logs
-    Job ||--o| DeadLetterQueue : fails_to
-    Worker ||--o{ Job : locks
-    Worker ||--o{ JobExecution : executes
-
-    Organization {
-        String id
-        String name
-    }
-    Project {
-        String id
-        String name
-    }
-    Queue {
-        String id
-        String name
-        Int concurrencyLimit
-    }
-    Job {
-        String id
-        String status
-        Int priority
-        Int attempts
-        DateTime scheduledFor
-    }
-    JobExecution {
-        String id
-        String status
-        String error
-    }
-    Worker {
-        String id
-        String hostname
-        DateTime lastHeartbeat
-    }
-```
+| Table | Purpose |
+|---|---|
+| `Organization` | Top-level tenant |
+| `User` | Authentication entity scoped to an org |
+| `Project` | Namespace for grouping queues |
+| `Queue` | Job queue with concurrency, priority, pause config |
+| `Job` | Core job entity with status state machine |
+| `JobExecution` | Per-attempt execution records |
+| `JobLog` | Structured logs for each job |
+| `Worker` | Registered worker nodes with heartbeat |
+| `ScheduledJob` | Cron/recurring job definitions |
+| `DeadLetterQueue` | Archive for permanently failed jobs |
 
 ---
 
-## 📡 REST API Quick-Start
-
-For a full endpoint walkthrough, check out the **[REST API Reference](api_docs.md)**.
+## 📡 REST API
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -121,6 +90,32 @@ For a full endpoint walkthrough, check out the **[REST API Reference](api_docs.m
 | `POST` | `/api/jobs/cron` | Create a recurring cron job |
 | `POST` | `/api/jobs/retry` | Retry a permanently failed job |
 | `GET` | `/api/workers` | Get workers + system health stats |
+
+### Create a Job Example
+```bash
+curl -X POST http://localhost:3000/api/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Send Email",
+    "queueId": "<queue-id>",
+    "payload": { "to": "user@example.com" },
+    "delayMs": 5000,
+    "maxAttempts": 3,
+    "retryBackoff": "EXPONENTIAL"
+  }'
+```
+
+### Create a Cron Job Example
+```bash
+curl -X POST http://localhost:3000/api/jobs/cron \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Hourly Report",
+    "queueId": "<queue-id>",
+    "cronExpression": "0 * * * *",
+    "payload": {}
+  }'
+```
 
 ---
 
@@ -185,8 +180,8 @@ npx vitest run
 │   └── scheduler.test.ts      # Automated tests (Vitest)
 ├── api_docs.md                # Full API documentation
 ├── design.md                  # Architecture & design decisions
-├── architecture.mermaid       # System architecture source file
-└── er_diagram.mermaid         # Database ER diagram source file
+├── architecture.mermaid       # System architecture diagram
+└── er_diagram.mermaid         # Database ER diagram
 ```
 
 ---
@@ -201,3 +196,31 @@ npx vitest run
 
 Test Files: 1 passed | Tests: 3 passed | Duration: 235ms
 ```
+
+---
+
+## 📄 Deliverables
+
+| Deliverable | File |
+|---|---|
+| Source Code | This repository |
+| Setup Instructions | This README |
+| Architecture Diagram | `architecture.mermaid` |
+| ER Diagram | `er_diagram.mermaid` |
+| API Documentation | `api_docs.md` |
+| Design Decisions | `design.md` |
+| Automated Tests | `tests/scheduler.test.ts` |
+
+---
+
+## 🔧 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend + API | Next.js 16 (App Router) |
+| Language | TypeScript |
+| ORM | Prisma v6 |
+| Database | SQLite |
+| Worker | Node.js / ts-node |
+| Testing | Vitest |
+| Styling | TailwindCSS + Lucide Icons |

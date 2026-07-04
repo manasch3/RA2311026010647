@@ -1,0 +1,43 @@
+```mermaid
+erDiagram
+    Organization ||--o{ User : contains
+    Organization ||--o{ Project : owns
+    Project ||--o{ Queue : manages
+    Queue ||--o{ Job : contains
+    Job ||--o{ JobExecution : runs
+    Job ||--o{ JobLog : logs
+    Job ||--o| DeadLetterQueue : fails_to
+    Worker ||--o{ Job : locks
+    Worker ||--o{ JobExecution : executes
+
+    Organization {
+        String id
+        String name
+    }
+    Project {
+        String id
+        String name
+    }
+    Queue {
+        String id
+        String name
+        Int concurrencyLimit
+    }
+    Job {
+        String id
+        String status
+        Int priority
+        Int attempts
+        DateTime scheduledFor
+    }
+    JobExecution {
+        String id
+        String status
+        String error
+    }
+    Worker {
+        String id
+        String hostname
+        DateTime lastHeartbeat
+    }
+```

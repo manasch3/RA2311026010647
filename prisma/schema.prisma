@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String    @id @default(uuid())
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  users     User[]
+  projects  Project[]
+}
+
+model User {
+  id             String       @id @default(uuid())
+  email          String       @unique
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Project {
+  id             String       @id @default(uuid())
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  queues         Queue[]
+}
+
+model Queue {
+  id               String       @id @default(uuid())
+  name             String
+  projectId        String
+  project          Project      @relation(fields: [projectId], references: [id])
+  concurrencyLimit Int          @default(10)
+  defaultPriority  Int          @default(0)
+  isPaused         Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  jobs             Job[]
+  scheduledJobs    ScheduledJob[]
+}
+
+model Job {
+  id           String         @id @default(uuid())
+  queueId      String
+  queue        Queue          @relation(fields: [queueId], references: [id])
+  name         String
+  payload      String         // Stored as JSON string since SQLite Prisma lacks JSON support
+  status       String         @default("QUEUED") // QUEUED, RUNNING, COMPLETED, FAILED
+  priority     Int            @default(0)
+  attempts     Int            @default(0)
+  maxAttempts  Int            @default(3)
+  retryDelay   Int            @default(1000) // Base delay in ms
+  retryBackoff String         @default("FIXED") // FIXED, LINEAR, EXPONENTIAL
+  
+  scheduledFor DateTime       @default(now())
+  lockedAt     DateTime?
+  lockedBy     String?        // Worker ID
+  
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  completedAt  DateTime?
+
+  executions   JobExecution[]
+  logs         JobLog[]
+  dlqEntry     DeadLetterQueue?
+  worker       Worker?        @relation(fields: [lockedBy], references: [id])
+}
+
+model ScheduledJob {
+  id             String    @id @default(uuid())
+  queueId        String
+  queue          Queue     @relation(fields: [queueId], references: [id])
+  name           String
+  payload        String    // JSON string
+  cronExpression String
+  isActive       Boolean   @default(true)
+  lastRunAt      DateTime?
+  nextRunAt      DateTime
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model JobExecution {
+  id         String    @id @default(uuid())
+  jobId      String
+  job        Job       @relation(fields: [jobId], references: [id])
+  workerId   String
+  worker     Worker    @relation(fields: [workerId], references: [id])
+  status     String    // RUNNING, COMPLETED, FAILED
+  error      String?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+}
+
+model JobLog {
+  id        String   @id @default(uuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id])
+  message   String
+  level     String   @default("INFO")
+  createdAt DateTime @default(now())
+}
+
+model Worker {
+  id             String         @id @default(uuid())
+  hostname       String
+  pid            Int
+  status         String         @default("ACTIVE") // ACTIVE, DRAINING, OFFLINE
+  lastHeartbeat  DateTime       @default(now())
+  startedAt      DateTime       @default(now())
+  jobs           Job[]
+  jobExecutions  JobExecution[]
+}
+
+model DeadLetterQueue {
+  id        String   @id @default(uuid())
+  jobId     String   @unique
+  job       Job      @relation(fields: [jobId], references: [id])
+  reason    String
+  createdAt DateTime @default(now())
+}
